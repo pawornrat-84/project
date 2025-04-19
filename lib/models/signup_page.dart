@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:login/main.dart';
+import 'package:login/models/MainScaffold.dart';
 import 'package:login/models/home_page.dart';
 
 class SignUpPage extends StatelessWidget {
@@ -8,6 +11,8 @@ class SignUpPage extends StatelessWidget {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController locationController = TextEditingController();
+
+  SignUpPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -25,22 +30,20 @@ class SignUpPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 60),
-            // Avatar
+
             CircleAvatar(
               radius: 60,
-              backgroundImage: AssetImage('assests/avatar.jpg'),
-              backgroundColor: Colors.transparent,
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person, size: 60, color: Colors.grey[700]),
             ),
             const SizedBox(height: 30),
 
-            // Name
             TextField(
               controller: nameController,
               decoration: _inputDecoration("Name", Icons.person),
             ),
             const SizedBox(height: 10),
 
-            // Password
             TextField(
               controller: passwordController,
               obscureText: true,
@@ -48,37 +51,95 @@ class SignUpPage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // Email
             TextField(
               controller: emailController,
               decoration: _inputDecoration("Email", Icons.email),
             ),
             const SizedBox(height: 10),
 
-            // Phone
             TextField(
               controller: phoneController,
               decoration: _inputDecoration("Phone", Icons.phone),
             ),
             const SizedBox(height: 10),
 
-            // Location
             TextField(
               controller: locationController,
               decoration: _inputDecoration("Location", Icons.location_on),
             ),
             const SizedBox(height: 15),
 
-            // Sign Up Button
             TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => HomePage()),
-                );
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final email = emailController.text.trim();
+                final password = passwordController.text.trim();
+                final phone = phoneController.text.trim();
+                final location = locationController.text.trim();
+
+                if (name.isEmpty || email.isEmpty || password.isEmpty) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text("เกิดข้อผิดพลาด"),
+                      content: const Text("กรุณากรอกชื่อ, อีเมล และรหัสผ่าน"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("OK"),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  UserCredential userCredential = await FirebaseAuth.instance
+                      .createUserWithEmailAndPassword(
+                    email: email,
+                    password: password,
+                  );
+
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(userCredential.user!.uid)
+                      .set({
+                        'name': name,
+                        'email': email,
+                        'phone': phone.isNotEmpty ? phone : '',
+                        'location': location.isNotEmpty ? location : '',
+                        'coin': 0,
+                        'tree': 0,
+                        'lastTreeUpdate': Timestamp.now(),
+                      });
+
+                  Navigator.pushReplacement(
+                    // ignore: use_build_context_synchronously
+                    context,
+                    MaterialPageRoute(builder: (context) => MainScaffold()),
+                  );
+                } on FirebaseAuthException catch (e) {
+                  showDialog(
+                    // ignore: use_build_context_synchronously
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text("Sign Up Failed"),
+                      content: Text(e.message ?? "Unknown error"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("OK"),
+                        ),
+                      ],
+                    ),
+                  );
+                }
               },
               child: const Text('Sign up'),
             ),
+
+
             TextButton(
               onPressed: () {
                 Navigator.push(
